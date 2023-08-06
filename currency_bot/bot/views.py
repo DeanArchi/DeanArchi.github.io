@@ -20,14 +20,6 @@ API_BASE_URL = os.getenv('API_BASE_URL')
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-currencies_list = {
-    "United States Dollar": "USD",
-    "Euro": "EUR",
-    "Ukrainian Hryvnia": "UAH",
-    "Czech Koruna": "CZK",
-    "Swiss Franc": "CHF"
-}
-
 
 @csrf_exempt
 def webhook(request):
@@ -84,7 +76,7 @@ def on_click(message):
         case 'Exchange rate':
             exchange_rate(message)
         case 'Currency conversion':
-            bot.send_message(message.chat.id, 'You chose 2 option')
+            currency_conversion(message)
         case 'Watchlist':
             bot.send_message(message.chat.id, 'You chose 3 option')
 
@@ -99,22 +91,25 @@ def get_list_of_currencies(chat_id):
     bot.send_message(chat_id, prepared_message)
 
 
-def handle_user_choice(message):
-    user_input = message.text.strip().upper()
-
+def check_input_data(message):
+    data = message.text.strip().upper()
     pattern = re.compile(r'^[A-Z]{3}/[A-Z]{3}$')
-    if not pattern.match(user_input):
+    if not pattern.match(data):
         bot.send_message(message.chat.id, 'Write your choice in the form "USD/EUR"')
+        bot.register_next_step_handler(message, check_input_data)
     else:
-        first_currency, second_currency = user_input.split('/')
+        first_currency, second_currency = data.split('/')
         currency_codes = Currency.objects.values_list('currency_code', flat=True)
 
         if first_currency not in currency_codes:
             bot.send_message(message.chat.id, f'There`s no {first_currency} in the list above.')
+            bot.register_next_step_handler(message, check_input_data)
         elif second_currency not in currency_codes:
             bot.send_message(message.chat.id, f'There`s no {second_currency} in the list above.')
+            bot.register_next_step_handler(message, check_input_data)
         elif first_currency == second_currency:
             bot.send_message(message.chat.id, f'You can`t input 2 same currencies.')
+            bot.register_next_step_handler(message, check_input_data)
         else:
             get_currencies = requests.get(f'{API_BASE_URL}{API_KEY}/latest/{first_currency}')
             get_currencies_json = get_currencies.json()
@@ -123,9 +118,21 @@ def handle_user_choice(message):
                 'second_currency': second_currency,
                 'get_currencies_json': get_currencies_json
             }
-            get_exchange_rate(message, user_data)
+            return user_data
 
-    bot.register_next_step_handler(message, handle_user_choice)
+
+def handle_user_choice(message, request_type):
+    user_data = check_input_data(message)
+    if user_data:
+        match request_type:
+            case 'exchange_rate':
+                get_exchange_rate(message, user_data)
+            case 'currency_conversion':
+                # user_input_amount_of_money(message, user_data)
+                bot.send_message(message.chat.id, 'Enter the amount of money to convert')
+                bot.register_next_step_handler(message, lambda msg: user_input_amount_of_money(msg, user_data))
+    else:
+        bot.register_next_step_handler(message, lambda msg: handle_user_choice(msg, request_type))
 
 
 def get_exchange_rate(message, user_data):
@@ -138,68 +145,42 @@ def get_exchange_rate(message, user_data):
 
     prepared_message = f'1 {first_currency} costs {chosen_exchange_rate} {second_currency}'
     bot.send_message(message.chat.id, prepared_message)
+    bot.send_message(message.chat.id, 'Type /start to continue work with bot')
 
 
 def exchange_rate(message):
+    request_type = 'exchange_rate'
     get_list_of_currencies(message.chat.id)
-    bot.send_message(message.chat.id, 'Write your choice (for example, USD/EUR):')
-    bot.register_next_step_handler(message, handle_user_choice)
+    bot.send_message(message.chat.id, 'Write your choice in the form "USD/EUR"')
+    bot.register_next_step_handler(message, lambda msg: handle_user_choice(msg, request_type))
 
 
+def user_input_amount_of_money(message, user_data):
+    try:
+        user_input = float(message.text)
+    except ValueError:
+        bot.send_message(message.chat.id, 'Invalid input. Please enter a valid numerical amount for conversion')
+        bot.register_next_step_handler(message, lambda msg: user_input_amount_of_money(msg, user_data))
+    else:
+        convert_currency_amount(message, user_data, user_input)
 
-def convert_currency_amount(message):
-    handle_user_choice(message)
+
+def convert_currency_amount(message, user_data, amount):
+    first_currency = user_data['first_currency']
+    second_currency = user_data['second_currency']
+    get_currencies_json = user_data['get_currencies_json']
+
+    conversion_rates = get_currencies_json["conversion_rates"]
+    chosen_exchange_rate = conversion_rates[second_currency]
+
+    converted_amount = round(amount * chosen_exchange_rate, 2)
+    prepared_message = f"{amount} {first_currency} costs {converted_amount} {second_currency}"
+    bot.send_message(message.chat.id, prepared_message)
+    bot.send_message(message.chat.id, 'Type /start to continue work with bot')
 
 
 def currency_conversion(message):
+    request_type = 'currency_conversion'
     get_list_of_currencies(message.chat.id)
-
-
-
-# @csrf_exempt
-# def webhook(request):
-#     if request.method == 'POST':
-#         data = json.loads(request.body)
-#         chat_id = data['message']['chat']['id']
-#         message = data.get('message').get('text')
-#
-#         main_buttons = [
-#             ['Exchange rate', 'Currency conversion'],
-#             ['Exchange rate tracking', '/help']
-#         ]
-#
-#         match message:
-#             case '/start':
-#                 response_text = 'Choose operation:'
-#                 send_markup_message(chat_id, response_text, main_buttons)
-#             case 'Exchange rate':
-#                 pass
-#             case 'Currency conversion':
-#                 pass
-#             case 'Exchange rate tracking':
-#                 pass
-#
-#     return JsonResponse({})
-#
-#
-# def send_message(chat_id, text):
-#     data = {
-#         'chat_id': chat_id,
-#         'text': text
-#     }
-#     requests.post(f'{TG_BASE_URL}{BOT_TOKEN}/sendMessage', data=data)
-#
-#
-# def send_markup_message(chat_id, text, buttons):
-#     keyboard = {
-#         'keyboard': buttons,
-#         'resize_keyboard': True,
-#         'one_time_keyboard': True
-#     }
-#     reply_markup = json.dumps(keyboard)
-#     data = {
-#         'chat_id': chat_id,
-#         'text': text,
-#         'reply_markup': reply_markup
-#     }
-#     requests.post(f'{TG_BASE_URL}{BOT_TOKEN}/sendMessage', data=data)
+    bot.send_message(message.chat.id, 'Write your choice in the form "USD/EUR"')
+    bot.register_next_step_handler(message, lambda msg: handle_user_choice(msg, request_type))
