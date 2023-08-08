@@ -29,8 +29,8 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG')
 
-ALLOWED_HOSTS = ['3b29-178-54-136-100.ngrok-free.app']
-CSRF_TRUSTED_ORIGINS = ['https://3b29-178-54-136-100.ngrok-free.app']
+ALLOWED_HOSTS = ['7ea5-178-54-136-100.ngrok.io']
+CSRF_TRUSTED_ORIGINS = ['https://7ea5-178-54-136-100.ngrok.io']
 
 
 # Application definition
