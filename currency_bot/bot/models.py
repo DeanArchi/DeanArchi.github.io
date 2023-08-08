@@ -28,3 +28,17 @@ class TelegramUser(models.Model):
         verbose_name = 'Telegram user'
         verbose_name_plural = 'Telegram users'
 
+
+class UserWatchlist(models.Model):
+    user = models.ForeignKey(TelegramUser, related_name='user_choice', on_delete=models.CASCADE)
+    first_currency = models.ForeignKey(Currency, related_name='first_cur_choice', on_delete=models.CASCADE)
+    second_currency = models.ForeignKey(Currency, related_name='second_cur_choice', on_delete=models.CASCADE)
+    exchange_rate = models.FloatField(null=False, default=0)
+
+    def __str__(self):
+        return f'1 {self.first_currency.currency_code} - {self.exchange_rate} {self.second_currency.currency_code}'
+
+    class Meta:
+        db_table = 'user_watchlist'
+        verbose_name = 'User watchlist'
+        verbose_name_plural = 'User watchlists'
