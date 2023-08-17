@@ -29,8 +29,9 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG')
 
-ALLOWED_HOSTS = ['7ea5-178-54-136-100.ngrok.io']
-CSRF_TRUSTED_ORIGINS = ['https://7ea5-178-54-136-100.ngrok.io']
+# You need to replace this address with address you generated with ngrok
+ALLOWED_HOSTS = ['fa1f-178-54-136-100.ngrok.io']
+CSRF_TRUSTED_ORIGINS = ['https://fa1f-178-54-136-100.ngrok.io']
 
 
 # Application definition
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_celery_beat',
     'bot.apps.BotConfig',
 ]
 
@@ -128,3 +130,14 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Celery settings
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
+CELERY_BEAT_SCHEDULE = {
+    'check_watchlist_updates_every_15_minutes': {
+        'task': 'bot.tasks.check_watchlist_updates',
+        'schedule': 900.0,  # Run every 15 minutes
+    },
+}
