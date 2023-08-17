@@ -15,3 +15,4 @@ Usage.
 3. Run redis in docker (docker run --name redis-container-name -p 6379:6379 redis)
 4. Run celery (celery --app currency_bot worker)
 5. Run the project (python manage.py runserver)
+6. Run celery beat (celery --app currency_bot beat)
